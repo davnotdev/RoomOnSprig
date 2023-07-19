@@ -1,0 +1,31 @@
+[package]
+name = "Room"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+smallvec = "1"
+micromath = "2"
+embedded-graphics = "0.7.1"
+trowel = { version = "1.0", git = "https://github.com/shanecelis/trowel", features = ["sdcard"] }
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))'.dependencies]
+rp-pico = { version = "0.7.0", git = "https://github.com/shanecelis/rp-hal-boards.git", features = ["rtic-monotonic"] }
+cortex-m = "0.7.3"
+cortex-m-rt = "0.7.0"
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))'.profile.dev]
+panic = "abort"
+debug = false
+lto = true
+opt-level = "s"
+
+[target.'cfg(all(target_arch = "arm", target_os = "none"))'.profile.release]
+panic = "abort"
+codegen-units = 1
+debug = false
+lto = true
+opt-level = "s"
+
