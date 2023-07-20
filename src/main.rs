@@ -39,7 +39,7 @@ impl Game {
         Self {
             tick: 0,
             frame: 0,
-            framebuffer: Framebuffer::new(5 * 16, 4 * 16),
+            framebuffer: Framebuffer::new(),
         }
     }
 }
@@ -59,30 +59,47 @@ impl App for Game {
         T: DrawTarget<Color = Rgb565, Error = E>,
     {
         self.tick += 1;
-        self.framebuffer.clear_depth(999f32);
-        self.framebuffer.clear_color(display, Color::Gray0);
-        let mat = mat4_identity();
-        let mat = mat4_scale(mat, [2.0, 2.0, 2.0]);
-        let mat = mat4_rotate(mat, self.tick as f32 / 10.0, [1.0, 1.0, 1.0]);
-        let mat = mat4_translate(mat, [0.0, 0.0, 0.0]);
-        self.framebuffer.render_pass(
-            display,
-            &RenderPass {
+        self.framebuffer.clear_color(Color::Gray0);
+        self.framebuffer.clear_depth(core::u16::MAX);
+        for i in -20..20 {
+            let mat = mat4_identity();
+            let mat = mat4_scale(mat, [2.0, 2.0, 2.0]);
+            let mat = mat4_rotate(mat, self.tick as f32 / 10.0, [1.0, 1.0, 1.0]);
+            let mat = mat4_translate(mat, [(3 * i) as f32, 0.0, -20.0]);
+            self.framebuffer.render_pass(&RenderPass {
                 camera_front: [0.0, 0.0, 1.0],
-                camera_position: [0.0, 0.0, -5.0],
+                camera_position: [0.0, 0.0, -10.0],
                 triangles: models::cube(),
                 model: mat,
-                color: Color::Red3,
-                border_color: Color::Gray1,
-                invert_culling: false,
+                color: Some(Color::Red3),
+                border_color: Some(Color::Gray1),
                 enable_depth: true,
                 projection: Some(ProjectionData {
                     fov_rad: core::f32::consts::PI / 2.0,
                     near: 0.1,
                     far: 50.0,
                 }),
-            },
-        );
+            });
+        }
+        let mat = mat4_identity();
+        let mat = mat4_scale(mat, [2.0, 2.0, 2.0]);
+        let mat = mat4_rotate(mat, self.tick as f32 / 10.0, [1.0, 1.0, 1.0]);
+        let mat = mat4_translate(mat, [1.0, 0.0, 0.0]);
+        self.framebuffer.render_pass(&RenderPass {
+            camera_front: [0.0, 0.0, 1.0],
+            camera_position: [0.0, 0.0, -10.0],
+            triangles: models::cube(),
+            model: mat,
+            color: Some(Color::Red3),
+            border_color: Some(Color::Gray1),
+            enable_depth: true,
+            projection: Some(ProjectionData {
+                fov_rad: core::f32::consts::PI / 2.0,
+                near: 0.1,
+                far: 50.0,
+            }),
+        });
+        self.framebuffer.flush(display);
         Ok(())
     }
 }

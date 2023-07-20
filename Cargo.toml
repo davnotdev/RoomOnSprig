@@ -16,16 +16,12 @@ rp-pico = { version = "0.7.0", git = "https://github.com/shanecelis/rp-hal-board
 cortex-m = "0.7.3"
 cortex-m-rt = "0.7.0"
 
-[target.'cfg(all(target_arch = "arm", target_os = "none"))'.profile.dev]
-panic = "abort"
-debug = false
-lto = true
-opt-level = "s"
-
-[target.'cfg(all(target_arch = "arm", target_os = "none"))'.profile.release]
-panic = "abort"
+[profile.release]
 codegen-units = 1
 debug = false
-lto = true
-opt-level = "s"
+debug-assertions = false
+incremental = false
+lto = 'fat'
+opt-level = 3
+overflow-checks = false
 

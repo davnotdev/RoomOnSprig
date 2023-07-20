@@ -1,6 +1,6 @@
 use super::*;
 
-use embedded_graphics::primitives::{PrimitiveStyleBuilder, Rectangle, Triangle};
+use embedded_graphics::image::{Image, ImageRawLE};
 
 pub struct ProjectionData {
     pub fov_rad: f32,
@@ -13,54 +13,178 @@ pub struct RenderPass<'triangles> {
     pub camera_position: Vec3,
     pub triangles: &'triangles [f32],
     pub model: Mat4,
-    pub color: Color,
-    pub border_color: Color,
-    pub invert_culling: bool,
+    pub color: Option<Color>,
+    pub border_color: Option<Color>,
     pub enable_depth: bool,
     pub projection: Option<ProjectionData>,
 }
 
+const FRAMEBUFFER_WIDTH: usize = 160;
+const FRAMEBUFFER_HEIGHT: usize = 128;
+
 pub struct Framebuffer {
-    width: u16,
-    height: u16,
+    colors: [u16; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
+    depths: [u16; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
 }
 
 impl Framebuffer {
-    pub fn new(width: u16, height: u16) -> Self {
+    pub fn new() -> Self {
         Self {
-            width,
-            height,
+            colors: [0; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
+            depths: [0; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
         }
     }
 
-    pub fn clear_color<T, E>(&self, display: &mut T, color: Color)
+    pub fn clear_color(&mut self, color: Color) {
+        let val = Rgb565::from(color).into_storage();
+        self.colors.iter_mut().for_each(|v| *v = val);
+    }
+
+    pub fn clear_depth(&mut self, value: u16) {
+        self.depths.iter_mut().for_each(|v| *v = value)
+    }
+
+    fn put_pixel(&mut self, x: usize, y: usize, z: Option<u16>, color: Color) {
+        if x < FRAMEBUFFER_WIDTH && y < FRAMEBUFFER_HEIGHT {
+            let idx = FRAMEBUFFER_WIDTH * y + x;
+            if let Some(z) = z {
+                if z < self.depths[idx] {
+                    self.depths[idx] = z;
+                    self.colors[idx] = Rgb565::from(color).into_storage();
+                }
+            } else {
+                self.colors[idx] = Rgb565::from(color).into_storage();
+            }
+        }
+    }
+
+    fn interpolate(i0: f32, d0: f32, i1: f32, d1: f32) -> SmallVec<[f32; 256]> {
+        if i0 == i1 {
+            return smallvec![d0];
+        }
+
+        let mut values = smallvec![];
+        let a = (d1 - d0) / (i1 - i0);
+        let mut d = d0;
+        for _ in (i0 as usize)..(i1 as usize) {
+            values.push(d);
+            d += a;
+        }
+
+        values
+    }
+
+    pub fn draw_line(&mut self, mut a: Vec3, mut b: Vec3, color: Color, enable_depth: bool) {
+        let dx = b[0] - a[0];
+        let dy = b[1] - a[1];
+
+        if dx.abs() > dy.abs() {
+            if dx < 0.0 {
+                core::mem::swap(&mut a, &mut b);
+            }
+
+            let ys = Self::interpolate(a[0], a[1], b[0], b[1]);
+            for x in (a[0] as usize)..(b[0] as usize) {
+                // Crude estimation of depth.
+                self.put_pixel(
+                    x,
+                    ys[x - a[0] as usize] as usize,
+                    enable_depth.then_some(a[2] as u16),
+                    color,
+                );
+            }
+        } else {
+            if dy < 0.0 {
+                core::mem::swap(&mut a, &mut b);
+            }
+
+            let xs = Self::interpolate(a[1], a[0], b[1], b[0]);
+            for y in (a[1] as usize)..(b[1] as usize) {
+                // Crude estimation of depth.
+                self.put_pixel(
+                    xs[y - a[1] as usize] as usize,
+                    y,
+                    enable_depth.then_some(a[2] as u16),
+                    color,
+                );
+            }
+        }
+    }
+
+    pub fn draw_triangle(&mut self, a: Vec3, b: Vec3, c: Vec3, color: Color, enable_depth: bool) {
+        self.draw_line(a, b, color, enable_depth);
+        self.draw_line(b, c, color, enable_depth);
+        self.draw_line(a, c, color, enable_depth);
+    }
+
+    fn fill_triangle(
+        &mut self,
+        mut a: Vec3,
+        mut b: Vec3,
+        mut c: Vec3,
+        color: Color,
+        enable_depth: bool,
+    ) {
+        if b[1] < a[1] {
+            core::mem::swap(&mut a, &mut b);
+        }
+        if c[1] < a[1] {
+            core::mem::swap(&mut a, &mut c);
+        }
+        if c[1] < b[1] {
+            core::mem::swap(&mut b, &mut c);
+        }
+
+        let mut x01 = Self::interpolate(a[1], a[0], b[1], b[0]);
+        let mut x12 = Self::interpolate(b[1], b[0], c[1], c[0]);
+        let mut x02 = Self::interpolate(a[1], a[0], c[1], c[0]);
+
+        x01.pop();
+        x12.pop();
+        x02.pop();
+        let mut x012 = x01.clone();
+        x012.append(&mut x12);
+
+        let m = x02.len() / 2;
+        if m != 0 && m < x02.len() && m < x012.len() {
+            let (x_left, x_right) = if !x02.is_empty() && !x012.is_empty() && x02[m] < x012[m] {
+                (x02, x012)
+            } else {
+                (x012, x02)
+            };
+
+            for y in (a[1] as usize)..=(c[1] as usize) {
+                let i = y - a[1] as usize;
+                if i < x_left.len() && i < x_right.len() {
+                    for x in (x_left[i] as usize)..=(x_right[i] as usize) {
+                        // Crude estimation of depth.
+                        self.put_pixel(x, y, enable_depth.then_some(a[2] as u16), color);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn flush<T, E>(&mut self, display: &mut T)
     where
         T: DrawTarget<Color = Rgb565, Error = E>,
     {
-        let style = PrimitiveStyleBuilder::new()
-            .fill_color(color.into())
-            .build();
-        let Ok(_) = Rectangle::new(
-            Point { x: 0, y: 0 },
-            Size {
-                width: self.width as u32,
-                height: self.height as u32,
+        let raw_image = ImageRawLE::<Rgb565>::new(
+            unsafe {
+                core::slice::from_raw_parts(
+                    self.colors.as_ptr() as *const u8,
+                    self.colors.len() * 2,
+                )
             },
-        )
-        .into_styled(style)
-        .draw(display) else {
+            FRAMEBUFFER_WIDTH as u32,
+        );
+        let image = Image::new(&raw_image, Point::zero());
+        let Ok(_) = image.draw(display) else {
             panic!("Failed to draw.");
         };
     }
 
-    pub fn clear_depth(&mut self, value: f32) {
-        // self.fb_depth.iter_mut().for_each(|v| *v = value)
-    }
-
-    pub fn render_pass<T, E>(&self, display: &mut T, pass: &RenderPass)
-    where
-        T: DrawTarget<Color = Rgb565, Error = E>,
-    {
+    pub fn render_pass(&mut self, pass: &RenderPass) {
         pass.triangles.windows(9).for_each(|triangles| {
             let mut vertices = triangles.chunks(3);
             let vertex_a: Vec3 = vertices.next().unwrap().try_into().unwrap();
@@ -77,10 +201,7 @@ impl Framebuffer {
                 vec_sub_vec(world_vertex_c, world_vertex_a),
             ));
 
-            if vec_dot(normal, vec_sub_vec(world_vertex_a, pass.camera_position))
-                * if pass.invert_culling { -1f32 } else { 1f32 }
-                < 0.0
-            {
+            if vec_dot(normal, vec_sub_vec(world_vertex_a, pass.camera_position)) < 0.0 {
                 let view = mat4_get_look_at(
                     pass.camera_position,
                     vec_add_vec(pass.camera_position, pass.camera_front),
@@ -131,19 +252,26 @@ impl Framebuffer {
                     let mut vertex_a = vec_add_scalar(vertex_a, 1.0);
                     let mut vertex_b = vec_add_scalar(vertex_b, 1.0);
                     let mut vertex_c = vec_add_scalar(vertex_c, 1.0);
-                    vertex_a[0] *= self.width as f32 * 0.5;
-                    vertex_b[0] *= self.width as f32 * 0.5;
-                    vertex_c[0] *= self.width as f32 * 0.5;
+                    vertex_a[0] *= FRAMEBUFFER_WIDTH as f32 * 0.5;
+                    vertex_b[0] *= FRAMEBUFFER_WIDTH as f32 * 0.5;
+                    vertex_c[0] *= FRAMEBUFFER_WIDTH as f32 * 0.5;
 
-                    vertex_a[1] *= self.height as f32 * 0.5;
-                    vertex_b[1] *= self.height as f32 * 0.5;
-                    vertex_c[1] *= self.height as f32 * 0.5;
+                    vertex_a[1] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
+                    vertex_b[1] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
+                    vertex_c[1] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
+
+                    vertex_a[2] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
+                    vertex_b[2] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
+                    vertex_c[2] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
 
                     let test_planes = [
                         ([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]),
-                        ([0.0, self.height as f32 - 1.0, 0.0], [0.0, -1.0, 0.0]),
+                        (
+                            [0.0, FRAMEBUFFER_HEIGHT as f32 - 1.0, 0.0],
+                            [0.0, -1.0, 0.0],
+                        ),
                         ([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]),
-                        ([self.width as f32 - 1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]),
+                        ([FRAMEBUFFER_WIDTH as f32 - 1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]),
                     ];
                     let mut final_triangles: SmallVec<[(Vec3, Vec3, Vec3); 2]> =
                         smallvec![(vertex_a, vertex_b, vertex_c)];
@@ -156,30 +284,13 @@ impl Framebuffer {
                         final_triangles = passed;
                     }
 
-                    final_triangles.iter().for_each(|(a, b, c)| {
-                        let style = PrimitiveStyleBuilder::new()
-                            .stroke_color(Rgb565::from(pass.border_color))
-                            .stroke_width(1)
-                            .fill_color(Rgb565::from(pass.color))
-                            .build();
-                        let Ok(_) = Triangle::new(
-                            Point {
-                                x: a[0] as i32,
-                                y: a[1] as i32,
-                            },
-                            Point {
-                                x: b[0] as i32,
-                                y: b[1] as i32,
-                            },
-                            Point {
-                                x: c[0] as i32,
-                                y: c[1] as i32,
-                            },
-                        )
-                        .into_styled(style)
-                        .draw(display) else {
-                            panic!("Failed to draw.");
-                        };
+                    final_triangles.iter().for_each(|&(a, b, c)| {
+                        if let Some(color) = pass.color {
+                            self.fill_triangle(a, b, c, color, pass.enable_depth);
+                        }
+                        if let Some(border_color) = pass.border_color {
+                            self.draw_triangle(a, b, c, border_color, pass.enable_depth);
+                        }
                     });
                 });
             }
