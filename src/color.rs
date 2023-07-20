@@ -1,9 +1,10 @@
 use super::*;
 
 //  These correspond with the sprig palette.
+#[repr(u8)]
 #[derive(Clone, Copy)]
 pub enum Color {
-    Gray0,
+    Gray0 = 0,
     GrayL,
     Gray1,
     Gray2,
@@ -24,6 +25,13 @@ pub enum Color {
     PurpleH,
 
     Orange9,
+}
+
+impl From<u8> for Color {
+    fn from(value: u8) -> Self {
+        assert!(value <= Color::Orange9 as u8);
+        unsafe { core::mem::transmute(value) }
+    }
 }
 
 impl From<Color> for Rgb565 {

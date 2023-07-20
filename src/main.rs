@@ -9,7 +9,6 @@ use embedded_graphics::{
     prelude::*,
     text::Text,
 };
-use rand::prelude::*;
 use smallvec::{smallvec, SmallVec};
 use trowel::{App, AppResult, Buttons};
 
@@ -23,7 +22,7 @@ mod math;
 mod models;
 
 use color::Color;
-use game::GameState;
+use game::GamePlayState;
 use graphics::{Framebuffer, ProjectionData, RenderPass};
 use math::{
     mat4_get_look_at, mat4_get_projection, mat4_identity, mat4_mul_mat4, mat4_mul_vec4,
@@ -34,21 +33,20 @@ use math::{
 
 struct Game {
     framebuffer: Framebuffer,
-    game: GameState,
+    game: GamePlayState,
 }
 
 impl Game {
     pub fn new() -> Self {
         Self {
             framebuffer: Framebuffer::new(),
-            game: GameState::new(),
+            game: GamePlayState::new(),
         }
     }
 }
 
 impl App for Game {
     fn init(&mut self) -> AppResult {
-        self.game.spawn_enemy();
         self.game.init();
         Ok(())
     }
@@ -64,7 +62,6 @@ impl App for Game {
     {
         self.game.render(&mut self.framebuffer);
         self.framebuffer.flush(display);
-        eprintln!("flush");
         Ok(())
     }
 }

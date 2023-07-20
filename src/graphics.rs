@@ -18,12 +18,17 @@ pub struct RenderPass<'triangles> {
     pub projection: Option<ProjectionData>,
 }
 
-const FRAMEBUFFER_WIDTH: usize = 160;
-const FRAMEBUFFER_HEIGHT: usize = 128;
+const FRAMEBUFFER_WIDTH: usize = 40;
+const FRAMEBUFFER_HEIGHT: usize = 32;
+
+const FRAMEBUFFER_UPSCALE_FACTOR: usize = 4;
+const FRAMEBUFFER_UPSCALED_WIDTH: usize = 160;
+const FRAMEBUFFER_UPSCALED_HEIGHT: usize = 128;
 
 pub struct Framebuffer {
     colors: [u16; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
     depths: [f32; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
+    image_buffer: [u16; FRAMEBUFFER_UPSCALED_WIDTH * FRAMEBUFFER_UPSCALED_HEIGHT],
 }
 
 impl Framebuffer {
@@ -31,6 +36,7 @@ impl Framebuffer {
         Self {
             colors: [0; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
             depths: [0.0; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
+            image_buffer: [0; FRAMEBUFFER_UPSCALED_WIDTH * FRAMEBUFFER_UPSCALED_HEIGHT],
         }
     }
 
@@ -175,14 +181,28 @@ impl Framebuffer {
     where
         T: DrawTarget<Color = Rgb565, Error = E>,
     {
+        for y in 0..FRAMEBUFFER_HEIGHT {
+            for x in 0..FRAMEBUFFER_WIDTH {
+                let color = self.colors[y * FRAMEBUFFER_WIDTH + x];
+
+                for yt in 0..FRAMEBUFFER_UPSCALE_FACTOR {
+                    for xt in 0..FRAMEBUFFER_UPSCALE_FACTOR {
+                        self.image_buffer[(y * FRAMEBUFFER_UPSCALE_FACTOR + yt)
+                            * FRAMEBUFFER_UPSCALED_WIDTH
+                            + x * FRAMEBUFFER_UPSCALE_FACTOR
+                            + xt] = color;
+                    }
+                }
+            }
+        }
         let raw_image = ImageRawLE::<Rgb565>::new(
             unsafe {
                 core::slice::from_raw_parts(
-                    self.colors.as_ptr() as *const u8,
-                    self.colors.len() * 2,
+                    self.image_buffer.as_ptr() as *const u8,
+                    self.image_buffer.len() * 2,
                 )
             },
-            FRAMEBUFFER_WIDTH as u32,
+            FRAMEBUFFER_UPSCALED_WIDTH as u32,
         );
         let image = Image::new(&raw_image, Point::zero());
         let Ok(_) = image.draw(display) else {
