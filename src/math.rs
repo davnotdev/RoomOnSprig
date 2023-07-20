@@ -5,6 +5,7 @@ pub type Vec3 = Vec<3>;
 pub type Vec4 = Vec<4>;
 pub type Mat4 = [Vec4; 4];
 
+#[inline(always)]
 pub fn mat4_identity() -> Mat4 {
     [
         [1.0, 0.0, 0.0, 0.0],
@@ -14,6 +15,7 @@ pub fn mat4_identity() -> Mat4 {
     ]
 }
 
+#[inline(always)]
 pub fn mat4_translate(mut mat: Mat4, translation: Vec3) -> Mat4 {
     mat[3][0] += translation[0];
     mat[3][1] += translation[1];
@@ -21,6 +23,7 @@ pub fn mat4_translate(mut mat: Mat4, translation: Vec3) -> Mat4 {
     mat
 }
 
+#[inline(always)]
 pub fn mat4_scale(mut mat: Mat4, scale: Vec3) -> Mat4 {
     mat[0][0] *= scale[0];
     mat[1][1] *= scale[1];
@@ -28,6 +31,7 @@ pub fn mat4_scale(mut mat: Mat4, scale: Vec3) -> Mat4 {
     mat
 }
 
+#[inline(always)]
 pub fn mat4_rotate(mat: Mat4, angle: f32, rot: Vec3) -> Mat4 {
     let c = angle.cos();
     let s = angle.sin();
@@ -57,6 +61,7 @@ pub fn mat4_rotate(mat: Mat4, angle: f32, rot: Vec3) -> Mat4 {
     mat4_mul_mat4(mat, rot_mat)
 }
 
+#[inline(always)]
 pub fn mat4_get_projection(aspect: f32, fov_rad: f32, near: f32, far: f32) -> Mat4 {
     [
         [aspect / (fov_rad / 2.0).tan(), 0.0, 0.0, 0.0],
@@ -66,6 +71,7 @@ pub fn mat4_get_projection(aspect: f32, fov_rad: f32, near: f32, far: f32) -> Ma
     ]
 }
 
+#[inline(always)]
 pub fn mat4_get_look_at(position: Vec3, center: Vec3, up: Vec3) -> Mat4 {
     let dir = vec_sub_vec(center, position);
     let right = vec_normalize(vec3_cross_product(up, dir));
@@ -84,6 +90,7 @@ pub fn mat4_get_look_at(position: Vec3, center: Vec3, up: Vec3) -> Mat4 {
     ]
 }
 
+#[inline(always)]
 pub fn mat4_mul_mat4(b: Mat4, a: Mat4) -> Mat4 {
     let mut result = mat4_identity();
     for r in 0..4 {
@@ -95,6 +102,7 @@ pub fn mat4_mul_mat4(b: Mat4, a: Mat4) -> Mat4 {
     result
 }
 
+#[inline(always)]
 pub fn mat4_mul_vec4(mat: Mat4, vec: Vec4) -> Vec4 {
     let mut result = [0.0, 0.0, 0.0, 0.0] as Vec4;
 
@@ -106,6 +114,7 @@ pub fn mat4_mul_vec4(mat: Mat4, vec: Vec4) -> Vec4 {
     result
 }
 
+#[inline(always)]
 pub fn vec4_scale_with_w(mut vec: Vec4) -> Vec4 {
     if vec[3] != 0.0 {
         vec[0] /= vec[3];
@@ -115,14 +124,17 @@ pub fn vec4_scale_with_w(mut vec: Vec4) -> Vec4 {
     vec
 }
 
+#[inline(always)]
 pub fn vec3_into_vec4(vec: Vec3) -> Vec4 {
     [vec[0], vec[1], vec[2], 1f32]
 }
 
+#[inline(always)]
 pub fn vec4_into_vec3(vec: Vec4) -> Vec3 {
     [vec[0], vec[1], vec[2]]
 }
 
+#[inline(always)]
 pub fn vec3_cross_product(a: Vec3, b: Vec3) -> Vec3 {
     let mut result = [0.0, 0.0, 0.0] as Vec3;
     result[0] = a[1] * b[2] - a[2] * b[1];
@@ -131,6 +143,7 @@ pub fn vec3_cross_product(a: Vec3, b: Vec3) -> Vec3 {
     result
 }
 
+#[inline(always)]
 pub fn vec_add_vec<const V: usize>(mut a: Vec<V>, b: Vec<V>) -> Vec<V> {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         *a += b;
@@ -138,6 +151,7 @@ pub fn vec_add_vec<const V: usize>(mut a: Vec<V>, b: Vec<V>) -> Vec<V> {
     a
 }
 
+#[inline(always)]
 pub fn vec_sub_vec<const V: usize>(mut a: Vec<V>, b: Vec<V>) -> Vec<V> {
     for (a, b) in a.iter_mut().zip(b.iter()) {
         *a -= b;
@@ -145,6 +159,12 @@ pub fn vec_sub_vec<const V: usize>(mut a: Vec<V>, b: Vec<V>) -> Vec<V> {
     a
 }
 
+#[inline(always)]
+pub fn vec_distance<const V: usize>(mut a: Vec<V>, b: Vec<V>) -> f32 {
+    vec_length(vec_sub_vec(b, a))
+}
+
+#[inline(always)]
 pub fn vec_add_scalar<const V: usize>(mut v: [f32; V], s: f32) -> [f32; V] {
     for vs in v.iter_mut() {
         *vs += s;
@@ -152,6 +172,7 @@ pub fn vec_add_scalar<const V: usize>(mut v: [f32; V], s: f32) -> [f32; V] {
     v
 }
 
+#[inline(always)]
 pub fn vec_mul_scalar<const V: usize>(mut v: [f32; V], s: f32) -> [f32; V] {
     for vs in v.iter_mut() {
         *vs *= s;
@@ -159,6 +180,7 @@ pub fn vec_mul_scalar<const V: usize>(mut v: [f32; V], s: f32) -> [f32; V] {
     v
 }
 
+#[inline(always)]
 pub fn vec_normalize<const V: usize>(v: [f32; V]) -> [f32; V] {
     let mut length = vec_length(v);
     if length == 0.0 {
@@ -167,6 +189,7 @@ pub fn vec_normalize<const V: usize>(v: [f32; V]) -> [f32; V] {
     vec_mul_scalar(v, 1.0 / length)
 }
 
+#[inline(always)]
 pub fn vec_dot<const V: usize>(a: Vec<V>, b: Vec<V>) -> f32 {
     let mut result = 0.0;
     for (a, b) in a.iter().zip(b.iter()) {
@@ -175,6 +198,7 @@ pub fn vec_dot<const V: usize>(a: Vec<V>, b: Vec<V>) -> f32 {
     result
 }
 
+#[inline(always)]
 pub fn vec_length<const V: usize>(v: [f32; V]) -> f32 {
     let mut sqsum = 0.0;
     for vs in v.iter() {
@@ -183,6 +207,7 @@ pub fn vec_length<const V: usize>(v: [f32; V]) -> f32 {
     sqsum.sqrt()
 }
 
+#[inline(always)]
 pub fn vec_intersects_plane<const V: usize>(
     plane_point: Vec<V>,
     plane_normal: Vec<V>,

@@ -1,7 +1,6 @@
 use super::*;
 
-use embedded_graphics::image::{Image, ImageRawLE};
-
+#[derive(Clone, Copy)]
 pub struct ProjectionData {
     pub fov_rad: f32,
     pub near: f32,
@@ -24,27 +23,30 @@ const FRAMEBUFFER_HEIGHT: usize = 128;
 
 pub struct Framebuffer {
     colors: [u16; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
-    depths: [u16; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
+    depths: [f32; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
 }
 
 impl Framebuffer {
     pub fn new() -> Self {
         Self {
             colors: [0; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
-            depths: [0; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
+            depths: [0.0; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
         }
     }
 
+    #[inline(always)]
     pub fn clear_color(&mut self, color: Color) {
         let val = Rgb565::from(color).into_storage();
         self.colors.iter_mut().for_each(|v| *v = val);
     }
 
-    pub fn clear_depth(&mut self, value: u16) {
+    #[inline(always)]
+    pub fn clear_depth(&mut self, value: f32) {
         self.depths.iter_mut().for_each(|v| *v = value)
     }
 
-    fn put_pixel(&mut self, x: usize, y: usize, z: Option<u16>, color: Color) {
+    #[inline(always)]
+    fn put_pixel(&mut self, x: usize, y: usize, z: Option<f32>, color: Color) {
         if x < FRAMEBUFFER_WIDTH && y < FRAMEBUFFER_HEIGHT {
             let idx = FRAMEBUFFER_WIDTH * y + x;
             if let Some(z) = z {
@@ -58,6 +60,7 @@ impl Framebuffer {
         }
     }
 
+    #[inline(always)]
     fn interpolate(i0: f32, d0: f32, i1: f32, d1: f32) -> SmallVec<[f32; 256]> {
         if i0 == i1 {
             return smallvec![d0];
@@ -74,6 +77,7 @@ impl Framebuffer {
         values
     }
 
+    #[inline(always)]
     pub fn draw_line(&mut self, mut a: Vec3, mut b: Vec3, color: Color, enable_depth: bool) {
         let dx = b[0] - a[0];
         let dy = b[1] - a[1];
@@ -89,7 +93,7 @@ impl Framebuffer {
                 self.put_pixel(
                     x,
                     ys[x - a[0] as usize] as usize,
-                    enable_depth.then_some(a[2] as u16),
+                    enable_depth.then_some(a[2]),
                     color,
                 );
             }
@@ -104,13 +108,14 @@ impl Framebuffer {
                 self.put_pixel(
                     xs[y - a[1] as usize] as usize,
                     y,
-                    enable_depth.then_some(a[2] as u16),
+                    enable_depth.then_some(a[2]),
                     color,
                 );
             }
         }
     }
 
+    #[inline(always)]
     pub fn draw_triangle(&mut self, a: Vec3, b: Vec3, c: Vec3, color: Color, enable_depth: bool) {
         self.draw_line(a, b, color, enable_depth);
         self.draw_line(b, c, color, enable_depth);
@@ -158,13 +163,14 @@ impl Framebuffer {
                 if i < x_left.len() && i < x_right.len() {
                     for x in (x_left[i] as usize)..=(x_right[i] as usize) {
                         // Crude estimation of depth.
-                        self.put_pixel(x, y, enable_depth.then_some(a[2] as u16), color);
+                        self.put_pixel(x, y, enable_depth.then_some(a[2]), color);
                     }
                 }
             }
         }
     }
 
+    #[inline(always)]
     pub fn flush<T, E>(&mut self, display: &mut T)
     where
         T: DrawTarget<Color = Rgb565, Error = E>,
@@ -185,7 +191,7 @@ impl Framebuffer {
     }
 
     pub fn render_pass(&mut self, pass: &RenderPass) {
-        pass.triangles.windows(9).for_each(|triangles| {
+        pass.triangles.chunks(9).for_each(|triangles| {
             let mut vertices = triangles.chunks(3);
             let vertex_a: Vec3 = vertices.next().unwrap().try_into().unwrap();
             let vertex_b: Vec3 = vertices.next().unwrap().try_into().unwrap();
@@ -252,17 +258,17 @@ impl Framebuffer {
                     let mut vertex_a = vec_add_scalar(vertex_a, 1.0);
                     let mut vertex_b = vec_add_scalar(vertex_b, 1.0);
                     let mut vertex_c = vec_add_scalar(vertex_c, 1.0);
-                    vertex_a[0] *= FRAMEBUFFER_WIDTH as f32 * 0.5;
-                    vertex_b[0] *= FRAMEBUFFER_WIDTH as f32 * 0.5;
-                    vertex_c[0] *= FRAMEBUFFER_WIDTH as f32 * 0.5;
+                    vertex_a[0] *= (FRAMEBUFFER_WIDTH / 2) as f32;
+                    vertex_b[0] *= (FRAMEBUFFER_WIDTH / 2) as f32;
+                    vertex_c[0] *= (FRAMEBUFFER_WIDTH / 2) as f32;
 
-                    vertex_a[1] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
-                    vertex_b[1] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
-                    vertex_c[1] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
+                    vertex_a[1] *= (FRAMEBUFFER_HEIGHT / 2) as f32;
+                    vertex_b[1] *= (FRAMEBUFFER_HEIGHT / 2) as f32;
+                    vertex_c[1] *= (FRAMEBUFFER_HEIGHT / 2) as f32;
 
-                    vertex_a[2] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
-                    vertex_b[2] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
-                    vertex_c[2] *= FRAMEBUFFER_HEIGHT as f32 * 0.5;
+                    vertex_a[2] *= 100.0;
+                    vertex_b[2] *= 100.0;
+                    vertex_c[2] *= 100.0;
 
                     let test_planes = [
                         ([0.0, 0.0, 0.0], [0.0, 1.0, 0.0]),
@@ -285,11 +291,11 @@ impl Framebuffer {
                     }
 
                     final_triangles.iter().for_each(|&(a, b, c)| {
-                        if let Some(color) = pass.color {
-                            self.fill_triangle(a, b, c, color, pass.enable_depth);
-                        }
                         if let Some(border_color) = pass.border_color {
                             self.draw_triangle(a, b, c, border_color, pass.enable_depth);
+                        }
+                        if let Some(color) = pass.color {
+                            self.fill_triangle(a, b, c, color, pass.enable_depth);
                         }
                     });
                 });

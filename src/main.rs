@@ -3,11 +3,13 @@
 
 use embedded_graphics::{
     draw_target::DrawTarget,
+    image::{Image, ImageRawLE},
     mono_font::{ascii, MonoTextStyle},
     pixelcolor::{Rgb565, Rgb888},
     prelude::*,
     text::Text,
 };
+use rand::prelude::*;
 use smallvec::{smallvec, SmallVec};
 use trowel::{App, AppResult, Buttons};
 
@@ -15,42 +17,44 @@ use trowel::{App, AppResult, Buttons};
 use micromath::F32Ext;
 
 mod color;
+mod game;
 mod graphics;
 mod math;
 mod models;
 
 use color::Color;
+use game::GameState;
 use graphics::{Framebuffer, ProjectionData, RenderPass};
 use math::{
     mat4_get_look_at, mat4_get_projection, mat4_identity, mat4_mul_mat4, mat4_mul_vec4,
     mat4_rotate, mat4_scale, mat4_translate, triangle_clip_plane, vec3_cross_product,
-    vec3_into_vec4, vec4_into_vec3, vec4_scale_with_w, vec_add_scalar, vec_add_vec, vec_dot,
-    vec_length, vec_mul_scalar, vec_normalize, vec_sub_vec, Mat4, Vec3, Vec4,
+    vec3_into_vec4, vec4_into_vec3, vec4_scale_with_w, vec_add_scalar, vec_add_vec, vec_distance,
+    vec_dot, vec_length, vec_mul_scalar, vec_normalize, vec_sub_vec, Mat4, Vec3, Vec4,
 };
 
 struct Game {
-    tick: u64,
-    frame: i32, // Frame count
     framebuffer: Framebuffer,
+    game: GameState,
 }
 
 impl Game {
     pub fn new() -> Self {
         Self {
-            tick: 0,
-            frame: 0,
             framebuffer: Framebuffer::new(),
+            game: GameState::new(),
         }
     }
 }
 
 impl App for Game {
     fn init(&mut self) -> AppResult {
+        self.game.spawn_enemy();
+        self.game.init();
         Ok(())
     }
 
-    fn update(&mut self, _buttons: Buttons) -> AppResult {
-        self.frame += 1;
+    fn update(&mut self, buttons: Buttons) -> AppResult {
+        self.game.update(buttons);
         Ok(())
     }
 
@@ -58,48 +62,9 @@ impl App for Game {
     where
         T: DrawTarget<Color = Rgb565, Error = E>,
     {
-        self.tick += 1;
-        self.framebuffer.clear_color(Color::Gray0);
-        self.framebuffer.clear_depth(core::u16::MAX);
-        for i in -20..20 {
-            let mat = mat4_identity();
-            let mat = mat4_scale(mat, [2.0, 2.0, 2.0]);
-            let mat = mat4_rotate(mat, self.tick as f32 / 10.0, [1.0, 1.0, 1.0]);
-            let mat = mat4_translate(mat, [(3 * i) as f32, 0.0, -20.0]);
-            self.framebuffer.render_pass(&RenderPass {
-                camera_front: [0.0, 0.0, 1.0],
-                camera_position: [0.0, 0.0, -10.0],
-                triangles: models::cube(),
-                model: mat,
-                color: Some(Color::Red3),
-                border_color: Some(Color::Gray1),
-                enable_depth: true,
-                projection: Some(ProjectionData {
-                    fov_rad: core::f32::consts::PI / 2.0,
-                    near: 0.1,
-                    far: 50.0,
-                }),
-            });
-        }
-        let mat = mat4_identity();
-        let mat = mat4_scale(mat, [2.0, 2.0, 2.0]);
-        let mat = mat4_rotate(mat, self.tick as f32 / 10.0, [1.0, 1.0, 1.0]);
-        let mat = mat4_translate(mat, [1.0, 0.0, 0.0]);
-        self.framebuffer.render_pass(&RenderPass {
-            camera_front: [0.0, 0.0, 1.0],
-            camera_position: [0.0, 0.0, -10.0],
-            triangles: models::cube(),
-            model: mat,
-            color: Some(Color::Red3),
-            border_color: Some(Color::Gray1),
-            enable_depth: true,
-            projection: Some(ProjectionData {
-                fov_rad: core::f32::consts::PI / 2.0,
-                near: 0.1,
-                far: 50.0,
-            }),
-        });
+        self.game.render(&mut self.framebuffer);
         self.framebuffer.flush(display);
+        eprintln!("flush");
         Ok(())
     }
 }
