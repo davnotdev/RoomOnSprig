@@ -82,7 +82,7 @@ impl GamePlayState {
         let random_health = rand_f32() * 100.0 + 40.0;
         //  TODO: Optimize this line.
         let random_color =
-            Color::from((rand_f32() * (Color::Orange9 as u8 + 1) as f32).floor() as u8);
+            Color::from(((rand_f32()) * (Color::Orange9 as u8 - 3) as f32).floor() as u8 + 4);
         let random_dodge = if rand_f32() >= 0.8 {
             0.0
         } else {

@@ -11,7 +11,7 @@ impl GamePlayState {
         let projection = ProjectionData {
             fov_rad: core::f32::consts::FRAC_PI_2,
             near: 0.1,
-            far: 50.0,
+            far: 70.0,
         };
 
         let far_projection = ProjectionData {
@@ -22,13 +22,18 @@ impl GamePlayState {
 
         for enemy in &self.enemies {
             let mv = mat4_identity();
-            let mv = mat4_scale(mv, [0.01, -0.018, 0.01]);
+            let mv = mat4_scale(mv, [1.5, -2.0, 1.5]);
+            let mv = mat4_rotate(
+                mv,
+                (enemy.color as u8 as usize * self.ticks) as f32,
+                [0.0, 1.0, 0.0],
+            );
             let mv = mat4_translate(mv, vec_add_vec(enemy.position, [0.0, 2.0, 0.0]));
 
             fb.render_pass(&RenderPass {
                 camera_front,
                 camera_position,
-                triangles: models::cube(),
+                triangles: models::person(),
                 model: mv,
                 color: Some(enemy.color),
                 border_color: Some(enemy.color),
@@ -56,16 +61,16 @@ impl GamePlayState {
 
         for bullet in &self.bullets {
             let mv = mat4_identity();
-            let mv = mat4_translate(mv, vec_add_vec(bullet.position, [0.0, 2.25, 0.0]));
-            let mv = mat4_scale(mv, [0.05, 0.05, 0.05]);
+            let mv = mat4_translate(mv, vec_add_vec(bullet.position, [0.0, 0.25, 0.0]));
+            let mv = mat4_scale(mv, [0.35, 0.35, 0.35]);
 
             fb.render_pass(&RenderPass {
                 camera_front,
                 camera_position,
                 triangles: models::cube(),
                 model: mv,
-                color: Some(Color::Yellow6),
-                border_color: None,
+                color: None,
+                border_color: Some(Color::Yellow6),
                 enable_depth: true,
                 projection: Some(projection),
             })

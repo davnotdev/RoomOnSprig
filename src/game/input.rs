@@ -39,10 +39,8 @@ impl GamePlayState {
         if buttons.contains(Buttons::I)
             && self.ticks - self.player.last_bullet_time >= BULLET_COOLDOWN_THRESHOLD
         {
-            self.spawn_bullet(
-                vec_sub_vec(self.player.position, [0.0, 2.0, 0.0]),
-                self.player.direction,
-            );
+            self.spawn_bullet(self.player.position, self.player.direction);
+            self.player.last_bullet_time = self.ticks;
         }
         if buttons.contains(Buttons::K) {
             self.player.yaw -= core::f32::consts::PI;

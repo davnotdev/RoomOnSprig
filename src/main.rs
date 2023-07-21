@@ -31,6 +31,9 @@ use math::{
     vec_dot, vec_length, vec_mul_scalar, vec_normalize, vec_sub_vec, Mat4, Vec3, Vec4,
 };
 
+const SCREEN_WIDTH: usize = 160;
+const SCREEN_HEIGHT: usize = 128;
+
 struct Game {
     framebuffer: Framebuffer,
     game: GamePlayState,
@@ -60,6 +63,10 @@ impl App for Game {
     where
         T: DrawTarget<Color = Rgb565, Error = E>,
     {
+        if self.game.ticks <= 2 {
+            self.game.init_text(display);
+        }
+
         self.game.render(&mut self.framebuffer);
         self.framebuffer.flush(display);
         Ok(())

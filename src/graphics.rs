@@ -18,11 +18,8 @@ pub struct RenderPass<'triangles> {
     pub projection: Option<ProjectionData>,
 }
 
-const FRAMEBUFFER_WIDTH: usize = 50;
-const FRAMEBUFFER_HEIGHT: usize = 40;
-
-const FRAMEBUFFER_SCREEN_WIDTH: usize = 160;
-const FRAMEBUFFER_SCREEN_HEIGHT: usize = 128;
+const FRAMEBUFFER_WIDTH: usize = 30;
+const FRAMEBUFFER_HEIGHT: usize = 30;
 
 pub struct Framebuffer {
     colors: [u16; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
@@ -190,8 +187,8 @@ impl Framebuffer {
         let image = Image::new(
             &raw_image,
             Point {
-                x: (FRAMEBUFFER_SCREEN_WIDTH / 2 - FRAMEBUFFER_WIDTH / 2) as i32,
-                y: (FRAMEBUFFER_SCREEN_HEIGHT / 2 - FRAMEBUFFER_HEIGHT / 2) as i32,
+                x: (SCREEN_WIDTH / 2 - FRAMEBUFFER_WIDTH / 2) as i32,
+                y: (SCREEN_HEIGHT / 2 - FRAMEBUFFER_HEIGHT / 2) as i32,
             },
         );
         let Ok(_) = image.draw(display) else {

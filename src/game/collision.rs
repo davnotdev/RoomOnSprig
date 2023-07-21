@@ -6,7 +6,7 @@ impl GamePlayState {
     pub(super) fn hit_by_bullet(bullets: &mut SmallVec<[Bullet; 16]>, agent: Vec3) -> bool {
         let mut was_hit = false;
         bullets.retain(|bullet| {
-            if vec_distance(bullet.position, agent) >= BULLET_HITBOX_RADIUS {
+            if vec_distance(bullet.position, agent) < BULLET_HITBOX_RADIUS {
                 was_hit = true;
                 false
             } else {

@@ -4,6 +4,7 @@ mod collision;
 mod input;
 mod render;
 mod spawn;
+mod text;
 mod tick;
 
 #[derive(Clone, Copy)]
@@ -15,9 +16,9 @@ struct Bullet {
 
 const BULLET_DAMAGE: f32 = 40.0;
 const BULLET_HITBOX_RADIUS: f32 = 2.5;
-const BULLET_COOLDOWN_THRESHOLD: usize = 12;
+const BULLET_COOLDOWN_THRESHOLD: usize = 5;
 const BULLET_MAX_DISTANCE: f32 = 40.0;
-const BULLET_SPEED: f32 = 0.5;
+const BULLET_SPEED: f32 = 1.0;
 
 #[derive(Clone, Copy)]
 struct Explosion {
@@ -26,7 +27,7 @@ struct Explosion {
 }
 
 const EXPLOSION_MAX_SIZE: f32 = 2.0;
-const EXPLOSION_GROWTH_INCREMENT: f32 = 0.05;
+const EXPLOSION_GROWTH_INCREMENT: f32 = 0.2;
 
 #[derive(Clone, Copy)]
 struct Player {
@@ -91,8 +92,8 @@ struct MapSetting {
 const MAP_WALL_Y: f32 = 6.0;
 const MAP_WALL_TO_WALL_MIN_DISTANCE: f32 = 20.0;
 const MAP_SETTINGS: &[MapSetting] = &[MapSetting {
-    bound: 85.0,
-    wall_count: 30,
+    bound: 100.0,
+    wall_count: 40,
     wall_max_scale: 6,
 }];
 
@@ -107,12 +108,19 @@ const ENEMY_SPAWN_FREQUENCY_PARAM: usize = 3;
 const KILL_SCREEN_STAGE: usize = ENEMY_CAP_STAGES.len() - 1;
 
 fn get_stage_number(ticks: usize) -> usize {
-    //  todo!()
-    0
+    match ticks {
+        0..=200 => 0,
+        201..=500 => 1,
+        501..=800 => 2,
+        801..=1100 => 3,
+        1101..=1500 => 4,
+        1501..=2001 => 5,
+        _ => KILL_SCREEN_STAGE,
+    }
 }
 
 pub struct GamePlayState {
-    ticks: usize,
+    pub ticks: usize,
     player: Player,
     medkit: Option<Medkit>,
     enemies: SmallVec<[Enemy; 64]>,
