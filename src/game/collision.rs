@@ -3,9 +3,9 @@ use super::*;
 impl GamePlayState {
     //  Check if hit by bullet.
     //  Destroy the bullet if so.
-    pub(super) fn hit_by_bullet(&mut self, agent: Vec3) -> bool {
+    pub(super) fn hit_by_bullet(bullets: &mut SmallVec<[Bullet; 16]>, agent: Vec3) -> bool {
         let mut was_hit = false;
-        self.bullets.retain(|bullet| {
+        bullets.retain(|bullet| {
             if vec_distance(bullet.position, agent) >= BULLET_HITBOX_RADIUS {
                 was_hit = true;
                 false
@@ -16,8 +16,8 @@ impl GamePlayState {
         was_hit
     }
 
-    pub(super) fn get_collision_wall(&self, position: Vec3) -> Option<Wall> {
-        self.walls
+    pub(super) fn get_collision_wall(walls: &SmallVec<[Wall; 64]>, position: Vec3) -> Option<Wall> {
+        walls
             .iter()
             .find(|wall| {
                 let box_min_x =

@@ -14,11 +14,16 @@ impl GamePlayState {
             far: 50.0,
         };
 
+        let far_projection = ProjectionData {
+            fov_rad: core::f32::consts::FRAC_PI_2,
+            near: 0.1,
+            far: 200.0,
+        };
+
         for enemy in &self.enemies {
             let mv = mat4_identity();
-            let mv = mat4_scale(mv, [1.0, 1.0, 1.0]);
-            let mv = mat4_rotate(mv, self.ticks as f32 / 10.0, [0.0, 1.0, 0.0]);
-            let mv = mat4_translate(mv, vec_add_vec(enemy.position, [0.0, 1.0, 0.0]));
+            let mv = mat4_scale(mv, [0.01, -0.018, 0.01]);
+            let mv = mat4_translate(mv, vec_add_vec(enemy.position, [0.0, 2.0, 0.0]));
 
             fb.render_pass(&RenderPass {
                 camera_front,
@@ -86,7 +91,7 @@ impl GamePlayState {
         if let Some(medkit) = self.medkit {
             let mv = mat4_identity();
             let mv = mat4_scale(mv, [1.2, 0.3, 1.2]);
-            let mv = mat4_rotate(mv, self.ticks as f32, [0.0, 1.0, 0.0]);
+            let mv = mat4_rotate(mv, self.ticks as f32 / 10.0, [0.0, 1.0, 0.0]);
             let mv = mat4_translate(mv, vec_add_vec(medkit.position, [0.0, 3.0, 0.0]));
 
             fb.render_pass(&RenderPass {
@@ -97,7 +102,7 @@ impl GamePlayState {
                 color: Some(Color::Red3),
                 border_color: Some(Color::Red3),
                 enable_depth: false,
-                projection: Some(projection),
+                projection: Some(far_projection),
             });
         }
     }

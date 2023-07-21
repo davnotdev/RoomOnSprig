@@ -18,17 +18,15 @@ pub struct RenderPass<'triangles> {
     pub projection: Option<ProjectionData>,
 }
 
-const FRAMEBUFFER_WIDTH: usize = 40;
-const FRAMEBUFFER_HEIGHT: usize = 32;
+const FRAMEBUFFER_WIDTH: usize = 50;
+const FRAMEBUFFER_HEIGHT: usize = 40;
 
-const FRAMEBUFFER_UPSCALE_FACTOR: usize = 4;
-const FRAMEBUFFER_UPSCALED_WIDTH: usize = 160;
-const FRAMEBUFFER_UPSCALED_HEIGHT: usize = 128;
+const FRAMEBUFFER_SCREEN_WIDTH: usize = 160;
+const FRAMEBUFFER_SCREEN_HEIGHT: usize = 128;
 
 pub struct Framebuffer {
     colors: [u16; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
     depths: [f32; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
-    image_buffer: [u16; FRAMEBUFFER_UPSCALED_WIDTH * FRAMEBUFFER_UPSCALED_HEIGHT],
 }
 
 impl Framebuffer {
@@ -36,7 +34,6 @@ impl Framebuffer {
         Self {
             colors: [0; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
             depths: [0.0; FRAMEBUFFER_WIDTH * FRAMEBUFFER_HEIGHT],
-            image_buffer: [0; FRAMEBUFFER_UPSCALED_WIDTH * FRAMEBUFFER_UPSCALED_HEIGHT],
         }
     }
 
@@ -181,30 +178,22 @@ impl Framebuffer {
     where
         T: DrawTarget<Color = Rgb565, Error = E>,
     {
-        for y in 0..FRAMEBUFFER_HEIGHT {
-            for x in 0..FRAMEBUFFER_WIDTH {
-                let color = self.colors[y * FRAMEBUFFER_WIDTH + x];
-
-                for yt in 0..FRAMEBUFFER_UPSCALE_FACTOR {
-                    for xt in 0..FRAMEBUFFER_UPSCALE_FACTOR {
-                        self.image_buffer[(y * FRAMEBUFFER_UPSCALE_FACTOR + yt)
-                            * FRAMEBUFFER_UPSCALED_WIDTH
-                            + x * FRAMEBUFFER_UPSCALE_FACTOR
-                            + xt] = color;
-                    }
-                }
-            }
-        }
         let raw_image = ImageRawLE::<Rgb565>::new(
             unsafe {
                 core::slice::from_raw_parts(
-                    self.image_buffer.as_ptr() as *const u8,
-                    self.image_buffer.len() * 2,
+                    self.colors.as_ptr() as *const u8,
+                    self.colors.len() * 2,
                 )
             },
-            FRAMEBUFFER_UPSCALED_WIDTH as u32,
+            FRAMEBUFFER_WIDTH as u32,
         );
-        let image = Image::new(&raw_image, Point::zero());
+        let image = Image::new(
+            &raw_image,
+            Point {
+                x: (FRAMEBUFFER_SCREEN_WIDTH / 2 - FRAMEBUFFER_WIDTH / 2) as i32,
+                y: (FRAMEBUFFER_SCREEN_HEIGHT / 2 - FRAMEBUFFER_HEIGHT / 2) as i32,
+            },
+        );
         let Ok(_) = image.draw(display) else {
             panic!("Failed to draw.");
         };
@@ -241,11 +230,11 @@ impl Framebuffer {
                     vec4_into_vec3(mat4_mul_vec4(view, vec3_into_vec4(world_vertex_c)));
 
                 let clipped_triangles = if let Some(projection) = &pass.projection {
-                    triangle_clip_plane(
-                        [0.0, 0.0, projection.near],
-                        [0.0, 0.0, 1.0],
-                        (view_vertex_a, view_vertex_b, view_vertex_c),
-                    )
+                    let test_planes = [
+                        ([0.0, 0.0, projection.near], [0.0, 0.0, 1.0]),
+                        ([0.0, 0.0, projection.far], [0.0, 0.0, -1.0]),
+                    ];
+                    Self::clip_planes((view_vertex_a, view_vertex_b, view_vertex_c), &test_planes)
                 } else {
                     smallvec![(view_vertex_a, view_vertex_b, view_vertex_c)]
                 };
@@ -299,16 +288,9 @@ impl Framebuffer {
                         ([0.0, 0.0, 0.0], [1.0, 0.0, 0.0]),
                         ([FRAMEBUFFER_WIDTH as f32 - 1.0, 0.0, 0.0], [-1.0, 0.0, 0.0]),
                     ];
-                    let mut final_triangles: SmallVec<[(Vec3, Vec3, Vec3); 2]> =
-                        smallvec![(vertex_a, vertex_b, vertex_c)];
 
-                    for plane in &test_planes {
-                        let mut passed: SmallVec<[(Vec3, Vec3, Vec3); 2]> = smallvec![];
-                        for t in final_triangles {
-                            passed.append(&mut triangle_clip_plane(plane.0, plane.1, t));
-                        }
-                        final_triangles = passed;
-                    }
+                    let final_triangles =
+                        Self::clip_planes((vertex_a, vertex_b, vertex_c), &test_planes);
 
                     final_triangles.iter().for_each(|&(a, b, c)| {
                         if let Some(border_color) = pass.border_color {
@@ -321,5 +303,22 @@ impl Framebuffer {
                 });
             }
         });
+    }
+
+    #[inline(always)]
+    fn clip_planes(
+        vertices: (Vec3, Vec3, Vec3),
+        test_planes: &[(Vec3, Vec3)],
+    ) -> SmallVec<[(Vec3, Vec3, Vec3); 2]> {
+        let mut final_triangles: SmallVec<[(Vec3, Vec3, Vec3); 2]> = smallvec![vertices];
+
+        for plane in test_planes {
+            let mut passed: SmallVec<[(Vec3, Vec3, Vec3); 2]> = smallvec![];
+            for t in final_triangles {
+                passed.append(&mut triangle_clip_plane(plane.0, plane.1, t));
+            }
+            final_triangles = passed;
+        }
+        final_triangles
     }
 }

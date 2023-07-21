@@ -5,19 +5,19 @@ impl GamePlayState {
         let settings = MAP_SETTINGS[self.selected_map];
 
         let north = Wall {
-            scale: [1.0, MAP_WALL_Y, settings.bound],
+            scale: [2.0, MAP_WALL_Y, settings.bound],
             position: [settings.bound, 0.0, 0.0],
         };
         let south = Wall {
-            scale: [1.0, MAP_WALL_Y, settings.bound],
+            scale: [2.0, MAP_WALL_Y, settings.bound],
             position: [-settings.bound, 0.0, 0.0],
         };
         let west = Wall {
-            scale: [settings.bound, MAP_WALL_Y, 1.0],
+            scale: [settings.bound, MAP_WALL_Y, 2.0],
             position: [0.0, 0.0, -settings.bound],
         };
         let east = Wall {
-            scale: [settings.bound, MAP_WALL_Y, 1.0],
+            scale: [settings.bound, MAP_WALL_Y, 2.0],
             position: [0.0, 0.0, settings.bound],
         };
 
@@ -108,7 +108,7 @@ impl GamePlayState {
                 let position_z = rand_f32() * map_setting.bound * 2.0 - map_setting.bound;
                 let position = [position_x, 0.0, position_z];
                 let dist_to_player = vec_distance(self.player.position, position);
-                if self.get_collision_wall(position).is_none()
+                if Self::get_collision_wall(&self.walls, position).is_none()
                     && (MEDKIT_PLAYER_SPAWN_MIN_RADIUS..=MEDKIT_PLAYER_SPAWN_MAX_RADIUS)
                         .contains(&dist_to_player)
                 {

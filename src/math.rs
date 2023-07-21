@@ -160,7 +160,7 @@ pub fn vec_sub_vec<const V: usize>(mut a: Vec<V>, b: Vec<V>) -> Vec<V> {
 }
 
 #[inline(always)]
-pub fn vec_distance<const V: usize>(mut a: Vec<V>, b: Vec<V>) -> f32 {
+pub fn vec_distance<const V: usize>(a: Vec<V>, b: Vec<V>) -> f32 {
     vec_length(vec_sub_vec(b, a))
 }
 

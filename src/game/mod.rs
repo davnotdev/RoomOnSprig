@@ -26,7 +26,7 @@ struct Explosion {
 }
 
 const EXPLOSION_MAX_SIZE: f32 = 2.0;
-const EXPLOSION_GROWTH_INCREMENT: f32 = 0.01;
+const EXPLOSION_GROWTH_INCREMENT: f32 = 0.05;
 
 #[derive(Clone, Copy)]
 struct Player {
@@ -42,10 +42,10 @@ struct Player {
 
 const PLAYER_MAX_HEALTH: f32 = 50.0;
 const PLAYER_POISON_TICK: f32 = 0.01;
-const PLAYER_MAX_VELOCITY: f32 = 0.9;
-const PLAYER_FRICTION_SCALAR: f32 = 0.006;
+const PLAYER_MAX_VELOCITY: f32 = 0.6;
+const PLAYER_FRICTION_SCALAR: f32 = 0.01;
 const PLAYER_WALL_BOUNCE_SCALAR: f32 = 0.8;
-const PLAYER_ACCELERATION: f32 = 0.13;
+const PLAYER_ACCELERATION: f32 = 0.1;
 
 #[derive(Clone, Copy)]
 struct Medkit {
@@ -76,7 +76,7 @@ struct Enemy {
 
 const ENEMY_DAMAGE: f32 = 0.2;
 const ENEMY_MAX_DODGE: f32 = 0.3;
-const ENEMY_REACH: f32 = 1.8;
+const ENEMY_REACH: f32 = 3.0;
 const ENEMY_SPEED_INCREMENT_SCALAR: f32 = 0.0006;
 const ENEMY_PLAYER_SPAWN_MIN_RADIUS: f32 = 60.0;
 const ENEMY_PLAYER_SPAWN_MAX_RADIUS: f32 = 350.0;
@@ -90,23 +90,11 @@ struct MapSetting {
 
 const MAP_WALL_Y: f32 = 6.0;
 const MAP_WALL_TO_WALL_MIN_DISTANCE: f32 = 20.0;
-const MAP_SETTINGS: &[MapSetting] = &[
-    MapSetting {
-        bound: 60.0,
-        wall_count: 12,
-        wall_max_scale: 4,
-    },
-    MapSetting {
-        bound: 75.0,
-        wall_count: 24,
-        wall_max_scale: 4,
-    },
-    MapSetting {
-        bound: 85.0,
-        wall_count: 30,
-        wall_max_scale: 5,
-    },
-];
+const MAP_SETTINGS: &[MapSetting] = &[MapSetting {
+    bound: 85.0,
+    wall_count: 30,
+    wall_max_scale: 6,
+}];
 
 #[derive(Clone, Copy)]
 pub struct Wall {
@@ -115,8 +103,8 @@ pub struct Wall {
 }
 
 const ENEMY_CAP_STAGES: &[usize] = &[3, 5, 8, 10, 15, 18, 50];
-const ENEMY_SPAWN_FREQUENCY_STAGES: &[f32] = &[0.03, 0.1, 0.15, 0.3, 0.4, 0.5, 10.0];
-const KILL_SCREEN_STAGE: usize = ENEMY_SPAWN_FREQUENCY_STAGES.len() - 1;
+const ENEMY_SPAWN_FREQUENCY_PARAM: usize = 3;
+const KILL_SCREEN_STAGE: usize = ENEMY_CAP_STAGES.len() - 1;
 
 fn get_stage_number(ticks: usize) -> usize {
     //  todo!()
@@ -130,7 +118,7 @@ pub struct GamePlayState {
     enemies: SmallVec<[Enemy; 64]>,
     selected_map: usize,
     walls: SmallVec<[Wall; 64]>,
-    bullets: SmallVec<[Bullet; 8]>,
+    bullets: SmallVec<[Bullet; 16]>,
     explosions: SmallVec<[Explosion; 8]>,
 }
 
